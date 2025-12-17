@@ -14,8 +14,7 @@ julia> coarse_radius_for_plotting(gs::GSTensor{D12, 2}, K)
 """
 function coarse_radius_for_plotting(gs::GSTensor{D12, 2}, K)
     # Method for both axes-glyph
-    # Extract the half-length of primary and secondary principal direction
-    # glyphs
+    # Extract the half-length of principal directions glyphs
     if is_in_limits(gs, K)
         v1 = @view K[:, 1]
         v2 = @view K[:, 2]
@@ -44,7 +43,7 @@ function coarse_radius_for_plotting(gs::GSTensor{D12, 2}, K)
 end
 function coarse_radius_for_plotting(gs::GSTensor{D, 1}, K) where D
     # Method for single-axis glyph
-    # Extract the half-length of primary and secondary principal direction
+    # Extract the half-length of major and minor principal direction
     # glyphs
     if is_in_limits(gs, K)
         v1 = @view K[:, D]
@@ -274,8 +273,8 @@ end
 
 """
 overlap_indirect_additional_paths(gs, pt1, v1, pt2, v2, αm1, αm2)
-overlap_indirect_additional_paths(gs::GSTensor{D1, 1}, pt1, v1, pt2, v2, αm1, αm2)
-overlap_indirect_additional_paths(gs::GSTensor{D12, 2}, pt1, v1, pt2, v2, αp1, αp2)
+overlap_indirect_additional_paths(gs::GSTensor{<:Any, 1}, pt1, v1, pt2, v2, αm1, αm2)
+overlap_indirect_additional_paths(gs::GSTensor{D12, 2}, pt1, K1, pt2, K2, αp1, αp2)
 """
 overlap_indirect_additional_paths(gs, pt1, v1, pt2, v2, αm1, αm2) = false
 function overlap_indirect_additional_paths(gs::GSTensor{<:Any, 1}, pt1, v1, pt2, v2, αm1, αm2)
@@ -286,7 +285,7 @@ end
 function overlap_indirect_additional_paths(gs::GSTensor{D12, 2}, pt1, K1, pt2, K2, αp1, αp2)
     exit_of_first_is_in_second(gs, pt1, K1, pt2, K2, αp1, π) && return true
     exit_of_first_is_in_second(gs, pt2, K2, pt1, K1, αp2, π) && return true
-    # Prepare for the other checks. `v` is 'primary' and `w` is secondary direction
+    # Prepare for the other checks. `v` is major and `w` is minor direction
     w1 = K1[:, 2] # Glyph 1 in direction αs1
     w2 = K2[:, 2] # Glyph 2 in direction αs2
     # Secondary axes of glyphs. w is given in (x,y) frame
@@ -387,7 +386,7 @@ function intersection_floating_point(pt1, pt2, α1, α2)
     i3f, j3f
 end 
 function dual_axes_intersect_within(gs::GSTensor{D12, 2}, pt1, K1::TENSORMAP, pt2, K2::TENSORMAP, αp1, αp2)
-    # Primary - primary
+    # Major - major
     if has_external_intersection_point(pt1, pt2, αp1, αp2)
         i3f, j3f = intersection_floating_point(pt1, pt2, αp1, αp2)
         l1, r1, l2, r2 = tempus_fugit(gs, pt1, K1, pt2, K2, i3f, j3f)
@@ -396,13 +395,13 @@ function dual_axes_intersect_within(gs::GSTensor{D12, 2}, pt1, K1::TENSORMAP, pt
             return true
         end
     end
-    # Prepare for the other checks. `v` is 'primary' and `w` is secondary direction
+    # Prepare for the other checks. `v` is major and `w` is secondary direction
     w1 = K1[:, 2] # Glyph 1 in direction αs1
     w2 = K2[:, 2] # Glyph 2 in direction αs2
     # Secondary axes of glyphs. w is given in (x,y) frame
     αs1 = atan(w1[2], w1[1])
     αs2 = atan(w2[2], w2[1])
-    # Primary of 1 - secondary of 2
+    # Major of 1 - secondary of 2
     if has_external_intersection_point(pt1, pt2, αp1, αs2)
         i3f, j3f = intersection_floating_point(pt1, pt2, αp1, αs2)
         l1, r1, l2, r2 = tempus_fugit(gs, pt1, K1, pt2, K2, i3f, j3f)

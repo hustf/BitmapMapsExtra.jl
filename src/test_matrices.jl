@@ -13,9 +13,10 @@ julia> using BitmapMapsExtras.TestMatrices: I0
 julia> varinfo(TestMatrices)
   name                                  size summary
   ––––––––––––––––––––––––––––––– –––––––––– –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-  TestMatrices                    21.675 KiB Module
-  background                         0 bytes background (generic function with 3 methods)
+  TestMatrices                    33.809 KiB Module
+  background                         0 bytes background (generic function with 2 methods)
   principal_curvatures_paraboloid    0 bytes principal_curvatures_paraboloid (generic function with 2 methods)
+  z_sphere_with_bulge                0 bytes z_sphere_with_bulge (generic function with 1 method)
   z_cos                              0 bytes z_cos (generic function with 1 method)
   z_cylinder                         0 bytes z_cylinder (generic function with 1 method)
   z_cylinder_offset                  0 bytes z_cylinder_offset (generic function with 1 method)
@@ -25,17 +26,21 @@ julia> varinfo(TestMatrices)
   z_plane                            0 bytes z_plane (generic function with 1 method)
   z_ridge_peak_valleys               0 bytes z_ridge_peak_valleys (generic function with 1 method)
   z_sphere                           0 bytes z_sphere (generic function with 1 method)
-
+  z_wavy                             0 bytes z_wavy (generic function with 1 method)
 ```
 
 """
 module TestMatrices
 import ..SelectedVec2AtXY, ..Vec2AtXY, ..z_matrix, ..PALETTE_BACKGROUND
 import ..AbstractIJFunctor, ..AbstractXYFunctor
+import ..BidirectionAtXY, ..BidirectionInDomain, ..Vec2InDomain
+using ..NonlinearSolve: IntervalNonlinearProblem
+using ..SciMLBase: successful_retcode, solve
 import ImageCore
-using ImageCore: scaleminmax, RGBA, N0f8
+using ImageCore: scaleminmax, RGB, N0f8
 export z_cylinder, z_cylinder_offset, z_sphere, z_ellipsoid, 
-    z_paraboloid, z_cos, z_exp3, z_plane, z_ridge_peak_valleys
+    z_paraboloid, z_cos, z_exp3, z_plane, z_ridge_peak_valleys,
+    z_wavy, z_sphere_with_bulge
 export principal_curvatures_saddle, principal_curvatures_paraboloid
 export background
 ##############################################
@@ -184,22 +189,14 @@ function z_plane(; a = 0.1, b = 0.2)
 end
 
 
-
-function zigzag(x)
-    sel = mod(x, 2π) 
-    y = 2 * mod(x, π) / π - 1
-    if sel ≈ 0 # Floating points can be tricky, hence special case
-        1.0
-    elseif sel ≈ π
-        -1.0
-    elseif sel < π
-        - y
-    else
-        y
-    end
-end
-
-
+"""
+    z_ridge_peak_valleys(;
+        mult = r / 8,
+        λ_arc = 0.3182291666666667,
+        λ_rad = 1.875,
+        spiral = 0.5)
+    )
+"""
 function z_ridge_peak_valleys(;
     mult = r / 8,
     λ_arc = 0.3182291666666667,   # Wave length fraction of 2π inner of spiral
@@ -226,6 +223,106 @@ function z_ridge_peak_valleys(;
 end
 
 
+"""
+    z_wavy(; a = 0.01r, b = 0.15r, c = 0.1)
+"""
+function z_wavy(; a = 0.01r, b = 0.15r, c = 0.1)
+    @assert ! (a == 0 &&  b == 0)
+    map(R) do I
+        y, x = (I - I0).I
+        θ = atan(y, x)
+        ρ = hypot(x, y)
+        # Tangential
+        zθ = sin(2θ)
+        # Radial
+        rwav = c * sin(8θ)
+        phase = π * 2ρ / (r * (1 + rwav))
+        repeatphase = mod(phase, π / 2)
+        brokenphase = repeatphase < π / 4 ? repeatphase :  repeatphase + 6π / 4
+        zr = -cos(brokenphase)
+        θrscaledown = ρ < r / 3 ? 3ρ / r : 1.0 
+        (a * zθ + b * zr) * θrscaledown 
+    end
+end
+
+"""
+    z_sphere_with_bulge(; a = 2096.0, b = a / 250, c = 12.0)
+
+Centre at upper left. The default bulge (amplitude controlled by `b`) is
+hardly visible. The entire output matrix is concave, but one component
+varies, leading to switching of major-minor directions.
+"""
+function z_sphere_with_bulge(; a = 2096.0, b = a / 250, c = 12.0)
+    functor = Fzx(; a, b, c)
+    map(R) do I
+        y, x = I.I
+        rxy = hypot(x, y)
+        functor(rxy)
+    end
+end
+
+###############################
+# Support for `z_...` functions
+###############################
+
+# For `z_ridge_peak_valleys`
+function zigzag(x)
+    sel = mod(x, 2π) 
+    y = 2 * mod(x, π) / π - 1
+    if sel ≈ 0 # Floating points can be tricky, hence special case
+        1.0
+    elseif sel ≈ π
+        -1.0
+    elseif sel < π
+        - y
+    else
+        y
+    end
+end
+
+# For `z_sphere_with_bulge`
+
+
+# Find radius ρ given θ
+fρθ(θ, a, b, c) = (a + b * cos(c * θ))
+
+# Find x (i.e. rxy ) given θ
+fxθ(θ, a, b, c) = fρθ(θ, a, b, c) * cos(θ)
+
+# Find elevation z given θ"
+fzθ(θ, a, b, c) = fρθ(θ, a, b, c) * sin(θ)
+
+struct Fzx{P}
+    a::Float64
+    b::Float64
+    c::Float64
+    prob::P
+end
+# Constructor
+function Fzx(; a = 2096.0, b = a / 250, c = 12.0, 
+    θ_lower = π / 4, θ_upper = π / 2 - eps(Float64))
+    xmin = fxθ(θ_upper, a, b, c)
+    xmax = fxθ(θ_lower, a, b, c)
+    # Residual. Parameter 'p' will be x when solving.
+    f(θ, p) = clamp(first(p), xmin, xmax) - fxθ(θ, a, b, c)
+    # We're adding an input 'p = x' value, 200.0, for initialization
+    prob = IntervalNonlinearProblem(f, (θ_lower, θ_upper), [200.0])
+    Fzx(a, b, c, prob)
+end
+# Callable
+function (fzx::Fzx)(x)
+    fzx.prob.p[1] = x
+    sol = solve(fzx.prob)
+    if ! successful_retcode(sol)
+        throw(ErrorException("$(sol.retcode)"))
+    end
+    θ = Float64(sol.u)
+    fzθ(θ, fzx.a, fzx.b, fzx.c)
+end
+
+##################
+# Related utilties
+##################
 
 """
     principal_curvatures_paraboloid(x, y; a = 1.0, b = 0.5a)
@@ -257,26 +354,37 @@ function principal_curvatures_paraboloid(pt::CartesianIndex; a = 1.0, b = 0.5a)
     principal_curvatures_paraboloid(x, y; a, b)
 end
 
-"""
-    background(z; α = 1.0)
-    background(saxy::SelectedVec2AtXY; α = 1.0)
-    background(vaxy::Vec2AtXY; α = 1.0)
 
-An image of the same size as input. α is the opacity (0 to 1).
+
 """
-function background(z; α = 1.0)
+    background(z::AbstractMatrix{<:Real}; Δc = -(-(extrema(z)...)) / 10, wc = Δc / 10)
+    background(f::T; kws...) where T<: Union{AbstractXYFunctor,
+            AbstractIJFunctor, BidirectionAtXY, BidirectionInDomain,
+            Vec2InDomain}
+
+An image of the same size as input. Argument `z` is shown as an elevation matrix with contour bands.
+
+# Keyword arguments
+
+- `Δc` Contour lines distance
+- `wc` Width of contour lines along the z axis.
+"""
+function background(z::AbstractMatrix{<:Real}; Δc = -(-(extrema(z)...)) / 10, wc = Δc / 10)
     foo = scaleminmax(extrema(z)...)
     scaled_z = foo.(z)
     img = map(scaled_z) do z
-        RGBA{N0f8}(get(PALETTE_BACKGROUND, z), α)
+        RGB{N0f8}(get(PALETTE_BACKGROUND, z))
     end
     # Add simple contour lines, too
-    Δc = -(-(extrema(z)...)) / 10 # elevation spacing
-    wc = Δc / 10         # 'width' of contour lines, in height....
     map!(img, z, img) do zz, pix
-        mod(zz, Δc) < wc ? RGBA{N0f8}(0.1, 0.1, 0.1, 1.0) : pix 
+        mod(zz, Δc) < wc ? RGB{N0f8}(0.1, 0.1, 0.1) : pix 
     end
 end
-background(fxy::AbstractXYFunctor; α = 1.0) = background(z_matrix(fxy); α)
-background(fij::AbstractIJFunctor; α = 1.0) = background(z_matrix(fij); α)
+function background(f::T; kws...) where T<: Union{AbstractXYFunctor,
+            AbstractIJFunctor, BidirectionAtXY, BidirectionInDomain,
+            Vec2InDomain}
+    background(z_matrix(f); kws...)
+end
 end # module
+
+

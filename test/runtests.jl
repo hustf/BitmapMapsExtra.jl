@@ -19,8 +19,11 @@ using Test
     @testset "calculate and draw glyphs" begin
         include("t_calculate_and_draw_glyphs.jl")
     end
-    @testset "paint curvature type" begin
-        include("t_paint_convexity_rank.jl")
+    @testset "paint convexity" begin
+        include("t_paint_convexity.jl")
+    end
+    @testset "paint steepness" begin
+        include("t_paint_steepness.jl")
     end
     @testset "pack glyphs" begin
         include("t_pack.jl")
@@ -35,6 +38,9 @@ end
     end
     @testset "bidirection types" begin
         include("t_bidirection_types.jl")
+    end
+    @testset "interpolation compatibility" begin
+        include("t_interpolation_compatibility")
     end
     @testset "streamlines" begin
         include("t_streamlines.jl")

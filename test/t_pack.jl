@@ -12,7 +12,7 @@ using BitmapMapsExtras.TestMatrices
 !@isdefined(is_hash_stored) && include("common.jl")
 
 @testset begin "Mark circumference of a vector glyph"
-    vhash = ["f872524b12ebaf0ee3e63b7dee291fb370130925"]
+    vhash = String[]
     COUNT[] = 0
     img = fill(RGB{N0f8}(0.624,0.667,0.663), 200, 200)
     cov = [0f0 for i = 1:200, j=1:200]
@@ -78,7 +78,7 @@ end
 end
 
 @testset begin "pack vector glyphs no collision"
-    vhash = ["d2f29ba39e6b5cb16eec98505e7828facfcb2ce7"]
+    vhash = String[]
     COUNT[] = 0
     img = fill(PALETTE_GRGB[1], 200, 200)
     b(x, y) = [80.0, -20.0]
@@ -92,7 +92,7 @@ end
 
 
 @testset begin "Mark circumference of a bidirectional vector glyph"
-    vhash = ["067ebe69603e498e53093f4b68dc4bf4d350ea9e"]
+    vhash = String[]
     COUNT[] = 0
     img = fill(RGB{N0f8}(0.624,0.667,0.663), 200, 200)
     gs = GSTensor(multip = 0.8, direction = 1, maxg = 200, ming = -200)
@@ -126,7 +126,7 @@ end
 end
 
 @testset begin "Mark circumference of a tensor glyph"
-    vhash = ["c7f0121a5cd63cf9a17c0ba0d5fea3352638b0d2"]
+    vhash = String[]
     COUNT[] = 0
     img = fill(RGB{N0f8}(0.624,0.667,0.663), 500, 500)
     gs = GSTensor(multip = 2, direction = 1:2, maxg = 500, ming = -500)
@@ -192,13 +192,13 @@ end
     ppts = [CartesianIndex(140, 125), 
             CartesianIndex(140, 185)]
     plot_glyphs!(img, d, ppts, gs)
-    # Primary axis (green) crossing over secondary
+    # Major axis crossing over minor
     @test length(placements_and_values(d, gs, ppts)[1]) == 1
 end
 
 
 @testset begin "2d vector glyph crash detection, 1 ends within 2"
-    vhash = ["d58329a3e6b7de1be6ee7784f489dbb35ad3b92f"]
+    vhash = String[]
     COUNT[] = 0
     gs = GSVector(multip = 1.16, maxg = 200)
     # Here, we check if the crash test works with the
@@ -227,7 +227,7 @@ end
 end
 
 @testset begin "2d vector glyph crash detection, 1 crosses 2"
-    vhash = ["9e3dd94ce0cf31b1c2969da6d40f2a555b8e93c8"]
+    vhash = String[]
     COUNT[] = 0
     gs = GSVector(multip = 1.16, maxg = 200)
     # Here, we check if the crash test works with the
@@ -254,7 +254,7 @@ end
 end
 
 @testset begin "Bidirectional vector glyph crash detection"
-    vhash = ["246980f61ddc7445154d9c85b7da117d5d8725cc"]
+    vhash = String[]
     COUNT[] = 0
     gs = GSTensor(multip = 1, maxg = 100, ming = -100, direction = 1)
     function fdir!(K, a, b, c, d, M, e, f)
@@ -272,12 +272,11 @@ end
     img = fill(RGB{N0f8}(0.624,0.667,0.663), 300, 300)
     plot_glyphs!(img, bdog, ppts, gs)
     @test is_hash_stored(img, vhash)
-    # Primary - primary 
     @test length(placements_and_values(bdog, gs, ppts)[1]) == 1
 end
 
 @testset begin "Bidirectional tensor glyph crash detection"
-    vhash = ["f3a40bbd3525275fc87c48e2a2774bc1fa53ffe4"]
+    vhash = String[]
     COUNT[] = 0
     gs = GSTensor(multip = 1, maxg = 100, ming = -100)
     function fdir!(K, a, b, c, d, M, e, f)

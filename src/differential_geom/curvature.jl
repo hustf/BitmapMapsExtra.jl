@@ -45,23 +45,24 @@ function principal_curvature_components!(K, vα, vβ, vκ, P, M, vϕ, lpc)
 end
 
 """
-    principal_curvature_normalized!(Kᵤ, vα, vβ, vκ, P, M, vϕ, lpc)
+    principal_curvature_normalized!(Kᵤ, vα, vβ, vκ, P, M, vϕ, lpc; minnorm = 1e-4)
 
 Alias: Kᵤ!.
 
 See `principal_curvature_components!` 
 
-Both directions are normalized to length 1, or set to zero when below a threshold. The sign
-remains unchanged.
+Use this for making `BidirectionOnGrid` objects for plotting tensormap glyphs.
+
+NOTE: Avoid this for making `BidirectionInDomain`, `BidirectionAtXY` and `SelectedVec2AtXY` 
+objects. Instead, use keywords `normalize = true`, possibly combined with e.g. `minnorm = 1e-4`
+
+Both directions are normalized to length 1, or set to zero when below threshold `minnorm`. 
+The sign remains unchanged.
 """
-function principal_curvature_normalized!(Kᵤ, vα, vβ, vκ, P, M, vϕ, lpc)
+function principal_curvature_normalized!(Kᵤ, vα, vβ, vκ, P, M, vϕ, lpc; minnorm = 1e-4)
     principal_curvature_components!(Kᵤ, vα, vβ, vκ, P, M, vϕ, lpc)
-    normalize_or_zero!(view(Kᵤ, :, 1))
-    normalize_or_zero!(view(Kᵤ, :, 2))
-    Kᵤ
+    normalize_or_zero!(Kᵤ, minnorm)
 end
-
-
 
 """
     principal_curvatures_and_angles!(vβ, vα, vκ, P, M, vϕ, lpc)
@@ -231,7 +232,7 @@ function tangent_dyad_to_xy!(vα, ϕ::AbstractFloat, P)
     x = P[1]·u + P[4]·v
     y = P[5]·v
     vα[1] = atan(y, x)
-    # In the tangent plane, the secondary principal direction
+    # In the tangent plane, the minor principal direction
     # is perpendicular to ϕ. The unit directional vectors 
     # form an orthonormal dyad.
     u, v = -v, u
@@ -310,6 +311,13 @@ function principal_curvature_and_direction(vκ::T, lpc) where T <: SVector{4, Fl
     a, b, c = solve!(lpc)
     # Principal‐curvature values from a, b, c
     r = hypot(b, c)       # faster than √(b^2 + c^2)
+    # TEMP 
+    if r < 1*10^-4.2
+        a = 0.0
+        b = 0.0
+        c = 0.0
+        r = 0.0
+    end
     κ1 = a + r            # maximum principal curvature
     κ2 = a - r            # minimum principal curvature
     # First maximum of I) equals κ1 and occurs at (from differentiation)
@@ -381,7 +389,7 @@ function allocations_curvature(R::CartesianIndices; vϕ = VΦ)
     vα = MVector{4, Float64}(Array{Float64, 1}(undef, 4))
     #  fixed-sized, sample curvature values  
     vκ = MVector{4, Float64}(Array{Float64, 1}(undef, 4))
-    # Principal and secondary principal angles. 
+    # Principal and minor principal angles. 
     vβ = MVector{2, Float64}(Array{Float64, 1}(undef, 2))
     # For finding which principal directions and size could 
     # lead to our samples. We prepare by constructing a design matrix A
@@ -394,4 +402,9 @@ function allocations_curvature(R::CartesianIndices; vϕ = VΦ)
     #
     Ri, Ω, v, P, K, vα, vκ, vβ, lpc
 end
+
+
+
+
+
 

@@ -61,17 +61,17 @@ function (did::Vec2InDomain)(x, negy)
     #
     if i1 != i2 && j1 != j2
         # Both pairs are different
-        lastvalue .=  cornerweight(1, 1, x - j1, negy - i1) .* vog(i1, j1)
-        lastvalue .+= cornerweight(2, 1, x - j1, negy - i1) .* vog(i2, j1)
-        lastvalue .+= cornerweight(1, 2, x - j1, negy - i1) .* vog(i1, j2)
-        lastvalue .+= cornerweight(2, 2, x - j1, negy - i1) .* vog(i2, j2)
+        lastvalue .=  corner_weight(1, 1, x - j1, negy - i1) .* vog(i1, j1)
+        lastvalue .+= corner_weight(2, 1, x - j1, negy - i1) .* vog(i2, j1)
+        lastvalue .+= corner_weight(1, 2, x - j1, negy - i1) .* vog(i1, j2)
+        lastvalue .+= corner_weight(2, 2, x - j1, negy - i1) .* vog(i2, j2)
     elseif i1 == i2 && j1 != j2
         # i1 equals i2, but j1 differs from j2
-        lastvalue .=  sideweight(1, x - j1) .* vog(i1, j1)
-        lastvalue .+= sideweight(2, x - j1) .* vog(i1, j2)
+        lastvalue .=  linear_weight(1, x - j1) .* vog(i1, j1)
+        lastvalue .+= linear_weight(2, x - j1) .* vog(i1, j2)
     elseif j1 == j2 && i1 != i2
-        lastvalue .=  sideweight(1, negy - i1) .* vog(i1, j1)
-        lastvalue .+= sideweight(2, negy - i1) .* vog(i2, j1)
+        lastvalue .=  linear_weight(1, negy - i1) .* vog(i1, j1)
+        lastvalue .+= linear_weight(2, negy - i1) .* vog(i2, j1)
         # j1 equals j2 
     else
         # i1 equals i2 and j1 equals j2
@@ -149,9 +149,14 @@ function (vaxy::Vec2AtXY)(x, y)
 end
 @define_show_with_fieldnames Vec2AtXY
 
-"z_matrix(vaxy::Vec2AtXY)"
-z_matrix(fxy::AbstractXYFunctor) = fxy.did.vog.z
-z_matrix(fij::AbstractIJFunctor) = fij.z
 
-size(fxy::AbstractXYFunctor) = size(z_matrix(fxy))
-size(fij::AbstractIJFunctor) = size(z_matrix(fij))
+# Method (extensions)
+
+z_matrix(fij::Vec2OnGrid) = fij.z
+z_matrix(fij::Vec2InDomain) = z_matrix(fij.vog)
+z_matrix(fxy::Vec2AtXY) = z_matrix(fxy.did)
+
+function size(f::T) where T<: Union{AbstractXYFunctor, AbstractIJFunctor, 
+    Vec2InDomain}
+    size(z_matrix(f))
+end

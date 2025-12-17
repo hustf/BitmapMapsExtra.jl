@@ -13,8 +13,6 @@ function get_streamlines_points(fxy::AbstractXYFunctor, pts, sol_density;
      odekws...)
     #
     @assert eltype(pts) <: CartesianIndex{2}
-    # Cache, function, etc. f or integration
-    #saxy = SelectedVec2AtXY(f, z, primary, flip)
     # Find solutions, i.e. streamlines
     sols = get_streamlines_xy(fxy, pts; odekws...)
     # NegateY (function for i --> y and for y --> i)
@@ -91,8 +89,8 @@ end
 function add_discrete_callbacks!(vdcb, saxy::SelectedVec2AtXY)
     # Flip selected direction callback
     push!(vdcb, DiscreteCallback(condition_flip_bidirection, affect_flip_bidirection!, save_positions=(true,true)))
-    # Flip primary <--> secondary
-    push!(vdcb, DiscreteCallback(condition_swap_primary_secondary, affect_swap_primary_secondary!, save_positions=(true,true)))
+    # Flip major <--> minor
+    push!(vdcb, DiscreteCallback(condition_swap_major_minor, affect_swap_major_minor!, save_positions=(true,true)))
 end
 add_discrete_callbacks!(vdcb, fxy) = vdcb 
 
@@ -120,7 +118,14 @@ function rhs!(du, u, fxy!::AbstractXYFunctor, t)
     du .= fxy!(u[1], u[2])
 end
 
-# Exit criterion 
+# Exit criterion
+"""
+    signed_distance_within_domain(u, t, integrator::ODEIntegrator)
+    signed_distance_within_domain(saxy::SelectedVec2AtXY, x, y)
+    signed_distance_within_domain(fxy::AbstractXYFunctor, x, y)
+
+Method extensions to Domain type argument.
+"""
 function signed_distance_within_domain(u, t, integrator::ODEIntegrator)
     @assert integrator.p isa AbstractXYFunctor
     signed_distance_within_domain(integrator.p, u[1], u[2])
@@ -134,28 +139,24 @@ signed_distance_within_domain(fxy::AbstractXYFunctor, x, y) =  signed_distance_w
 # vector set to zero when under that threshold)
 function too_flat(u, t, integrator::ODEIntegrator)
     out = max(-1.0, norm(u[1], u[2]) - 0.008)
-    #if out < 0f0
-        #@debug "tooflat $out   "
-    #end
+    if out < 0f0
+        @debug "Too flat ($out ) at (x, y) = $u  \n(xprev, yprev) = $(integrator.uprev) " maxlog = 120
+    end
     out
 end 
 
 # Our own function for potential debugging termination causes.
-affect!(integrator) = terminate!(integrator)
-
+function affect!(integrator)
+    terminate!(integrator)
+end
 
 function condition_flip_bidirection(u, t, integrator::ODEIntegrator)
     @assert t > integrator.tprev
-    is_pointing_roughly_opposite(integrator.p, integrator.uprev, u, t)
+    is_close_to_opposite(integrator.p, integrator.uprev, u)
 end
-function is_pointing_roughly_opposite(saxy::SelectedVec2AtXY, u0, u1, t)
-    dprod = dot_product_with_previous(saxy, u0, u1)
-    # Direction change is 
-    # 138° < direction change <  228°
-    if dprod < - 0.668
-        return true
-    end
-    false
+function is_close_to_opposite(saxy::SelectedVec2AtXY, u0, u1)
+    d = dot_product_with_previous(saxy, u0, u1)
+    is_close_to_opposite(d)
 end
 
 function affect_flip_bidirection!(integrator)
@@ -164,28 +165,32 @@ function affect_flip_bidirection!(integrator)
     nothing
 end
 
-function condition_swap_primary_secondary(u, t, integrator::ODEIntegrator)
+function condition_swap_major_minor(u, t, integrator::ODEIntegrator)
     @assert t > integrator.tprev
-    # TODO: This repeats some evaluations. Perhaps better share one discrete callback?
-    is_pointing_roughly_perpendicular(integrator.p, integrator.uprev, u)
-end
-function affect_swap_primary_secondary!(integrator)
-    saxy = integrator.p
-    saxy.baxy.primary[] = ! saxy.baxy.primary[]
-    nothing
-end
-
-
-# This needs some prettying up.
-# See 'dot_product_with_previous' and 'is_close_to_perpendicular'.
-function is_pointing_roughly_perpendicular(saxy::SelectedVec2AtXY, u0, u1)
-    dprod = dot_product_with_previous(saxy, u0, u1)
-    # Direction change is 
-    # +/-48° < direction change <  +/- 138° 
-    if -0.668 < dprod < 0.668
-        return true
+    dotprod = dot_product_with_previous(integrator.p, integrator.uprev, u)
+    isit = is_close_to_perpendicular(dotprod)
+    if isit
+        @debug "Swap major minor at (x, y) = $u  \n(xprev, yprev) = $(integrator.uprev) " maxlog = 120
+    else 
+        if dotprod < 0.999
+            @debug "In doubt: dotprod = $dotprod at (x, y) = $u  \n(xprev, yprev) = $(integrator.uprev) " maxlog = 120
+            # Vector from last solution point
+            Δu = (integrator.uprev - u)
+            magΔ = norm(Δu)
+            magΔ < MAG_EPS && return 1.0
+            # ....normalized to unit length
+            Δu ./= magΔ
+            # Normalized move is zero? 
+            du = integrator.p.v
+            @debug "Δu = $(Δu)    du = $du"
+        end
     end
-    false
+    isit
+end
+function affect_swap_major_minor!(integrator)
+    saxy = integrator.p
+    saxy.baxy.major[] = ! saxy.baxy.major[]
+    nothing
 end
 
 """
@@ -200,9 +205,17 @@ function dot_product_with_previous(saxy::SelectedVec2AtXY, u0, u1)
     magΔ < MAG_EPS && return 1.0
     # ....normalized to unit length
     Δu ./= magΔ
-    # Normalized differential du1 
+    # The direction from here 
     du = saxy.v
-    norm(du) < 0.98 && return 1.0
+    if norm(du) < 0.5
+        @debug "norm(du) = $(norm(du)) at u0 = $u0 u1 = $u1"
+        return 1.0
+    end
+    # Normalize the direction from here
+    magd = norm(du)
+    if magd < 0.92 && magd > 0
+        throw("unexpected magd = $magd (temporarily at least) at u1 = $(u1)")
+    end
     # Dot product    
     Δu[1] * du[1] + Δu[2] * du[2]
 end

@@ -12,7 +12,7 @@ import ImageCore
 using ImageCore: N0f8, GrayA, RGBA, colormap, Gray, RGB, Lab, alpha, Colorant
 using ImageCore: channelview
 import StaticArrays
-using StaticArrays: SVector, MVector, MMatrix, SMatrix
+using StaticArrays: SVector, MVector, MMatrix, SMatrix, @MVector, SizedVector
 import LinearAlgebra
 using LinearAlgebra: ⋅, norm, normalize!
 import LinearSolve
@@ -24,6 +24,7 @@ import Random
 using Random: MersenneTwister, randperm
 import Unicode
 using Unicode: graphemes
+import NonlinearSolve
 
 # For streamlines
 import OrdinaryDiffEq
@@ -34,6 +35,7 @@ import OrdinaryDiffEqCore
 using OrdinaryDiffEqCore: ODEIntegrator
 import SciMLBase
 using SciMLBase: ReturnCode.Success, ReturnCode.Terminated, ReturnCode.DtLessThanMin
+using SciMLBase: successful_retcode
 #
 export tangent_basis # TODO Add more at some later time, or use new public thing.
 
@@ -112,7 +114,7 @@ const TENSORMAP = MMatrix{2, 2, Float64, 4}
 const D1  = 0x01
 "Direction 2 to be shown"
 const D2  = 0x02
-"Bitwise: Specifies whether direction 1 and / or 2 are to be shown"
+"Direction 1 and 2 to be shown"
 const D12 = D1 | D2
 
 
@@ -131,7 +133,9 @@ include("visualization/plot_glyph_given_value.jl")
 include("visualization/pack_glyphs.jl")
 include("visualization/plot_glyphs.jl")
 include("visualization/spray_streamlines.jl")
+include("visualization/paint.jl")
 include("visualization/paint_convexity_rank.jl")
+include("visualization/paint_steepness.jl")
 include("visualization/default_ij_functor.jl")
 include("visualization/glyph_indices.jl")
 include("tensormap_functions.jl")

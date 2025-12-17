@@ -4,6 +4,14 @@
  # - streamline properties
 abstract type AbstractGlyphSpec end 
 
+"""
+    GSTensor(; multip = 50, ming = -50, maxg = 50,
+                  dashsize = 5.0f0, strength = 0.8f0,
+                  colors = (PALETTE_GRGB[3], PALETTE_GRGB[4]),
+                  direction = 1:2)
+
+Specifies how tensor map glyphs are presented.
+"""
 struct GSTensor{D, N} <: AbstractGlyphSpec
     multip::Float64
     ming::Float64
@@ -69,7 +77,12 @@ end
 
 
 
+"""
+    GSVector(; multip = 50, ming = 0.01, maxg = 50,
+        dashsize = 5.0f0, strength = 0.7f0, color = COLOR_CURVGLYPH)
 
+Specifies how vector glyphs are presented.
+"""
 struct GSVector <: AbstractGlyphSpec
     multip::Float64
     ming::Float64

@@ -1,9 +1,11 @@
 # This file contains tangent_basis!, tangent_basis  and 
 # supporting functions. Mutating versions for tight loops.
-# Also descent!, the normalized surface normal vector projected onto the base plane,
-# sampled from a 5x5 window.
+# Also 
+# - descent!      the normalized surface normal vector projected onto the base plane
+# - descent_unit! ...which is the same, but normalized or set to zero.
+# All sampled from a 5x5 window.
 
-# Relies on constants KERN1´ and KERN2´
+# Relies on constants KERN1´, KERN2´ and MAG_EPS
 
 """
     tangent_basis(M)
@@ -267,20 +269,20 @@ function descent!(v, M)
 end
 
 """
-    descent_unit!(v, M)
+    descent_unit!(v, M; minnorm = MAG_EPS)
 
 Alias: 𝐧ₚᵤ!.
 
 See `descent!`.
 
-The 2d vector is normalized to length 1, or set to zero when below a threshold. 
+The 2d vector is normalized to length 1, or set to zero when below threshold `minnorm`. 
 
 Normalized projection of 𝐧 into the xy-plane (y is up). `𝐧` is the normal vector to the elevation surface `z`.
 """
-function descent_unit!(v, M)
+function descent_unit!(v, M; minnorm = MAG_EPS)
     dz_x = dz_over_dx(M)
     dz_y = dz_over_dy(M)
     v[1] = -dz_x
     v[2] = -dz_y
-    normalize_or_zero!(v)
+    normalize_or_zero!(view(v, :, 1), minnorm)
 end

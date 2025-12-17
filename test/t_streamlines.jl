@@ -14,7 +14,7 @@ using Random: MersenneTwister
 
 
 @testset "Streamlines, 𝐧ₚᵤ! versus 𝐧ₚ!" begin
-    vhash = ["e4afae413dec900f7124795dd323ca189b48513e", "8c8eb2d82316d0274ec6a7652d378933487bdaab"]
+    vhash = String["ac95de89fa45e10207f7a55b927c46a5536687b3", "782059bac310a93e68887e6e6a445003ec7b9074"]
     COUNT[] = 0
     vaxy = Vec2AtXY(𝐧ₚ!, z_cylinder(π / 6));
     pts = indices_on_grid(vaxy)
@@ -34,7 +34,7 @@ using Random: MersenneTwister
 end
 
 @testset "Solution keyword example" begin
-    vhash = ["91cd4ba192a5e2c8593298ac153913f42b6d5817", "6b876dfa7c901ccae0a164f540a0c292db74fc2e"]
+    vhash = String["212d6c6f1287121258cd7a3a275112d7144365c2", "6b876dfa7c901ccae0a164f540a0c292db74fc2e"]
     COUNT[] = 0
     # Streamlines ending up far into a flat area.
     vaxy = Vec2AtXY(𝐧ₚ!, z_sphere());
@@ -49,7 +49,7 @@ end
 end
 
 @testset "Streamlines starting on grid" begin
-    vhash = ["aa5122d77b6b4c25c0e5960cf982c81f06aa5d53", "ac181fe1d82fdcacd26bd41b11ac9c49f9b1dbdb", "6cfee7330ccc8450899157b7f70d21a0cfc6c408", "18d4771ce9e5668d24a576436ae69eeaa6befaa8", "60eff50548ed1a5e66e3234443abd68f1849d570", "03e7a8bf15e0774d84843e0d98f7551fca19693e", "73ed530a50f186e71e3de71e4d579bdc9e5299d1", "6b876dfa7c901ccae0a164f540a0c292db74fc2e"]
+    vhash = String[]
     COUNT[] = 0
     vzf = [z_cos,
         () -> z_cylinder(π / 6),
@@ -58,7 +58,9 @@ end
         z_exp3,
         z_paraboloid,
         z_ridge_peak_valleys,
-        z_sphere]
+        z_sphere,
+        z_plane,
+        z_wavy]
     for fz in vzf
         vaxy = Vec2AtXY(𝐧ₚ!, fz());
         pts = indices_on_grid(vaxy)
@@ -70,7 +72,7 @@ end
 end
 
 @testset "Uphill and downhill with different appearance" begin
-    vhash = ["111d1c783b3dc941f6a7c4a2ea490bdad2c8a1b5", "3d4c6e9ccb17011eec83c51cddbc81994c8fcc3a", "5ee5d2ce26fd22b0daded2ee34f7e1aae36aa036"]
+    vhash = String["f0729a8fb8eadc8e2ba5375d2e1da10a5b0edd87", "df21ddc6594124300d3a3a3196f264bdbd8a79f1", "82812712c4a22ff376acc582cec4b326de9de91a"]
     COUNT[] = 0
     # Short streamlines down from grid points
     vaxy = Vec2AtXY(𝐧ₚ!, z_ridge_peak_valleys())
@@ -102,7 +104,7 @@ end
 end
 
 @testset "Streamlines without grid" begin
-    vhash = ["adff000734b6448a50ef8bcd1991a0a1bfd2cb1f"]
+    vhash = String["2edbe0ac70dfcb8e29fcf472550d8b33f4782edb"]
     COUNT[] = 0
     z = z_ridge_peak_valleys()
     # Originating at points where z > 0

@@ -9,25 +9,29 @@
 function extract_discrete_points_on_streamline(sol, negy::NegateY, sol_density)
     if ! (sol.retcode == Success ||
         sol.retcode == Terminated) # || sol.retcode == DtLessThanMin)
-        @show sol.retcode
-        throw("What's up?")
+        @warn sol.retcode
     end
     # Pre-allocate
     pts = CartesianIndex{2}[]
-    oldi, oldj = 0, 0, 0
+    # Circular buffer of recent points (as (i,j) tuples)
+    buf = @MVector [(0, 0) for _ in 1:100]
+    buf_len = 0          # how many valid entries we currently track (≤ 100)
+    buf_idx = 1          # next position to overwrite (1-based, circular)
     # sol_density determines how far, in solution time, between examined solution points.
-    # Examined points are then checked for uniqueness (discrete pixels).
     trng = range(first(sol.t), last(sol.t), step = sol_density * sign( last(sol.t) - first(sol.t)   ))
     for t in trng
-        x, y = sol(t) # This is a fast, interpolated lookup 
+        x, y = sol(t) # Fast, interpolated lookup 
         ny = negy(y)
         i = Int(round(ny))
         j = Int(round(x))
-        if i !== oldi || j !== oldj
-            # We didn't just visit this pixel before.
-            p = CartesianIndex(i, j)
-            push!(pts, p)
-            oldi, oldj = i, j
+        p = (i, j)
+        # Skip if in recent buffer
+        if !any(==(p), @view buf[1:buf_len])
+            # Add to pts and to recent buffer
+            push!(pts, CartesianIndex(p...))
+            @inbounds buf[buf_idx] = p
+            buf_idx = buf_idx == 100 ? 1 : buf_idx + 1
+            buf_len = min(buf_len + 1, 100)
          end
     end
     pts

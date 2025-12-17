@@ -3,14 +3,17 @@
 # Relies on constant PALETTE_CONVEXITY
 
 """
-paint_convexity_rank!(img::Matrix{<:RGB}, z, pts;  
-    flatval = 0.0003, palette = PALETTE_CONVEXITY)
+    paint_convexity_rank!(img::Matrix{<:RGB}, z::AbstractMatrix{<:Real}, pts;  
+        flatval = 0.0003, palette = PALETTE_CONVEXITY)
+    paint_convexity_rank!(img, f::T, pts; kws...) where T<: Union{AbstractXYFunctor,
+            AbstractIJFunctor, BidirectionAtXY, BidirectionInDomain,
+            Vec2InDomain}
+    --> img::Matrix{<:RGB}
 
-Overlays a color-map onto the image img.
-
-See callees `color_point_by_convexity_rank!` and  `convexity_rank`!
+Overlays a color-map onto the image img, preserving lightness.
+See `convexity_rank`!
 """
-function paint_convexity_rank!(img::Matrix{<:RGB}, z, pts;  
+function paint_convexity_rank!(img::Matrix{<:RGB}, z::AbstractMatrix{<:Real}, pts;  
     flatval = 0.0003, palette = PALETTE_CONVEXITY) 
     #
     buf = zeros(RGB{N0f8}, size(img)...)
@@ -19,6 +22,11 @@ function paint_convexity_rank!(img::Matrix{<:RGB}, z, pts;
     chromaticity_over!(img, buf)
     img
 end 
+function paint_convexity_rank!(img, f::T, pts; kws...) where T<: Union{AbstractXYFunctor,
+            AbstractIJFunctor, BidirectionAtXY, BidirectionInDomain,
+            Vec2InDomain}
+    paint_convexity_rank!(img, z_matrix(f), pts; kws...)
+end
 
 function _paint_convexity_rank!(buf, z, pts, flatval, palette)
     # Prepare
@@ -32,18 +40,10 @@ function _paint_convexity_rank!(buf, z, pts, flatval, palette)
     Ri = CartesianIndices((mini:maxi, minj:maxj))
     # Color points one at a time
     for pt in filter(pt -> pt ∈ Ri, sort(vec(pts)))
-        color_point_by_convexity_rank!(buf, pt, bog(pt.I...), flatval, palette)
+        # K is a 2x2 matrix with two bidirectional vectors.
+        K = bog(pt.I...)
+        rank = convexity_rank(K, flatval)
+        set_pixel_from_palette!(buf, pt, rank, palette)
     end
     buf
-end
-
-
-"""
-    color_point_by_convexity_rank!(buf, pt,  K, flatval, palette)
-
-K is a 2x2 matrix with two bidirectional vectors, returned from `components_matrix!`.
-"""
-function color_point_by_convexity_rank!(buf, pt,  K, flatval, palette)
-    i = convexity_rank(K, flatval)
-    buf[pt] = palette[i]
 end
