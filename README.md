@@ -64,6 +64,11 @@ We're using [OrdinaryDiffEq](https://docs.sciml.ai/OrdinaryDiffEq/stable/) to ma
 
 ## Current progress
 
+Version 0.1.5
+Added paint_convexity and paint_steepness. Some more test geometry. 
+Working on improvements to curvature lines, but real consistency still
+eludes us. Tests in flux.
+
 Version 0.1.4
 
 Refactor functions in files.

@@ -1,6 +1,6 @@
 name = "BitmapMapsExtras"
 uuid = "91f7643b-a5d6-413a-971e-f956c21a1050"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["hustf <hustf@users.noreply.github.com> and contributors"]
 
 [deps]
